@@ -1,16 +1,48 @@
+using System.ComponentModel;
 using API.Models;
+using Microsoft.AspNetCore.Authorization.Infrastructure;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.OpenApi.Models;
+using Microsoft.Extensions.DependencyInjection;
 
 var builder = WebApplication.CreateBuilder(args);
+
 builder.Services.AddDbContext<AppDataContext>();
+builder.Services.AddEndpointsApiExplorer();
+
+builder.Services.AddSwaggerGen(options =>
+{
+    options.EnableAnnotations(); 
+    options.SwaggerDoc("v1", new OpenApiInfo
+    {
+        Title = "Swagger Documentação Web API Carros",
+        Description = "Um exemplo de como fornecer a documentação para APIs.",
+        Contact = new OpenApiContact
+        {
+            Name = "Willian Marques",
+            Email = "willianmarquebao@gmail.com"
+        },
+        License = new OpenApiLicense
+        {
+            Name = "MIT License",
+            Url = new Uri("https://opensource.org/license/mit/")
+        }
+    });
+});
+
 
 var app = builder.Build();
 
+app.UseSwagger();
+app.UseSwaggerUI();
+
 // Endpoints relacionados ao recurso de Carros
 // GET: Lista todos os carros cadastrados
-app.MapGet("/api/carros", ([FromServices] AppDataContext ctx) => {
-    if(ctx.Carros.Any()){
+app.MapGet("/api/carros", ([FromServices] AppDataContext ctx) =>
+{
+    if (ctx.Carros.Any())
+    {
         return Results.Ok(ctx.Carros.ToList());
     }
 
@@ -19,13 +51,16 @@ app.MapGet("/api/carros", ([FromServices] AppDataContext ctx) => {
 
 // POST: Cadastrar carro
 app.MapPost("/api/carros", ([FromBody] Carro carro,
-                            [FromServices] AppDataContext ctx) => {
+                            [FromServices] AppDataContext ctx) =>
+{
 
     carro.Modelo = ctx.Modelos.Find(carro.Modelo.Id);
-    if (carro.Modelo == null) {
+    if (carro.Modelo == null)
+    {
         return Results.BadRequest("Modelo não existe!");
     }
-    if (carro.Name == null || carro.Name.Length < 3) {
+    if (carro.Name == null || carro.Name.Length < 3)
+    {
         return Results.BadRequest("Nome do carro deve conter mais de 3char!");
     }
 
@@ -36,10 +71,12 @@ app.MapPost("/api/carros", ([FromBody] Carro carro,
 
 // GET: Buscar o carro pelo id 
 app.MapGet("/api/carros/{id}", ([FromRoute] int id,
-                                [FromServices] AppDataContext ctx) => {
+                                [FromServices] AppDataContext ctx) =>
+{
     Carro? carro = ctx.Carros.Find(id);
 
-    if (carro != null) {
+    if (carro != null)
+    {
         return Results.Ok(carro);
     }
 
@@ -49,18 +86,22 @@ app.MapGet("/api/carros/{id}", ([FromRoute] int id,
 // PUT: Atualiza os dados do Carro pelo Id 
 app.MapPut("/api/carros/{id}", ([FromRoute] int id,
                                 [FromBody] Carro carro,
-                                [FromServices] AppDataContext ctx) => {
+                                [FromServices] AppDataContext ctx) =>
+{
     Carro? entidade = ctx.Carros.Find(id);
     entidade.Modelo = ctx.Modelos.Find(carro.Modelo.Id);
 
-    if (entidade.Modelo == null) {
+    if (entidade.Modelo == null)
+    {
         return Results.BadRequest("Modelo não existe!");
     }
-    if (carro.Name == null || carro.Name.Length < 3) {
+    if (carro.Name == null || carro.Name.Length < 3)
+    {
         return Results.BadRequest("Nome do carro deve conter mais de 3char!");
     }
 
-    if (entidade != null) {
+    if (entidade != null)
+    {
         entidade.Name = carro.Name;
         ctx.Carros.Update(entidade);
         ctx.SaveChanges();
@@ -71,9 +112,11 @@ app.MapPut("/api/carros/{id}", ([FromRoute] int id,
 
 // DELETE: Remove um carro pelo Id 
 app.MapDelete("/api/carros/{id}", ([FromRoute] int id,
-                                   [FromServices] AppDataContext ctx) => {   
+                                   [FromServices] AppDataContext ctx) =>
+{
     Carro? carro = ctx.Carros.Find(id);
-    if(carro == null) {
+    if (carro == null)
+    {
         return Results.NotFound();
     }
 
@@ -83,20 +126,28 @@ app.MapDelete("/api/carros/{id}", ([FromRoute] int id,
 });
 
 // GET: Lista todos os modelos cadastrados
-app.MapGet("/api/modelos", ([FromServices] AppDataContext ctx) => {
-    var modelos = ctx.Modelos.ToList();
-    if (modelos == null || modelos.Count == 0) {
-        return Results.NotFound();    
+app.MapGet("/api/modelos", ([FromQuery] string? name, [FromServices] AppDataContext ctx) =>
+{
+    var query = ctx.Modelos.AsQueryable();
+    if(!string.IsNullOrWhiteSpace(name)){
+        query = query.Where(m => EF.Functions.Like(m.Name, $"%{name}%"));
+    }
+
+    var modelos = query.ToList();
+    if(modelos == null || modelos.Count == 0){
+        return Results.NotFound();
     }
     return Results.Ok(modelos);
 });
 
 // GET: Busca  todos os modelos cadastrados
 app.MapGet("/api/modelos/{id}", ([FromRoute] int id,
-                                 [FromServices] AppDataContext ctx) => {
+                                 [FromServices] AppDataContext ctx) =>
+{
     var modelo = ctx.Modelos.Find(id);
-    if (modelo == null) {
-        return Results.NotFound();    
+    if (modelo == null)
+    {
+        return Results.NotFound();
     }
     return Results.Ok(modelo);
 });
